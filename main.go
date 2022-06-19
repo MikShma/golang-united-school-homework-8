@@ -16,6 +16,7 @@ const (
 	arg_item      = "item"
 	arg_id        = "id"
 	filePerm      = 0644
+	errSpecFlag   = "flag has to be specified"
 )
 
 type Arguments map[string]string
@@ -42,22 +43,48 @@ func parseArgs() (args Arguments) {
 	return args
 }
 
-func (args Arguments) AddOper(writer io.Writer) error {
-
-	if args[arg_item] == "" {
-		return errors.New("-item flag has to be specified")
+func (args Arguments) ReadJsonFile(checkArg string) (people []Person, err error) {
+	
+	if args[checkArg] == "" {
+		return nil, fmt.Errorf("-%s %s", checkArg, errSpecFlag)
 	}
 
 	content, err := ioutil.ReadFile(args[arg_fileName])
 	if err != nil {
+		return nil, err
+	}
+	
+	if len(content) == 0 {
+		return nil, nil
+	}
+	
+	if err := json.Unmarshal(content, &people); err != nil {
+		return nil, err
+	}
+	return people, nil
+}
+
+func (args Arguments) WriteJsonFile(people []Person) error {
+	
+	file, err := os.OpenFile(args[arg_fileName], os.O_RDWR|os.O_CREATE|os.O_TRUNC, filePerm)
+	if err != nil {
 		return err
 	}
-	var people []Person
-	if len(content) != 0 {
 
-		if err := json.Unmarshal(content, &people); err != nil {
-			return err
-		}
+	people_out, err := json.Marshal(people)
+	if err != nil {
+		return err
+	}
+	file.Write(people_out)
+	file.Close()
+	return nil
+}
+
+func (args Arguments) AddOper(writer io.Writer) error {
+	
+	people, err := args.ReadJsonFile(arg_item)
+	if err != nil {
+		return err
 	}
 	var manToAdd Person
 	if err := json.Unmarshal([]byte(args[arg_item]), &manToAdd); err != nil {
@@ -76,38 +103,20 @@ func (args Arguments) AddOper(writer io.Writer) error {
 		Email: manToAdd.Email,
 		Age:   manToAdd.Age,
 	})
-
-	file, err := os.OpenFile(args[arg_fileName], os.O_RDWR|os.O_CREATE, filePerm)
-	if err != nil {
+	
+	if err := args.WriteJsonFile(people); err !=nil {
 		return err
 	}
-
-	people_out, err := json.Marshal(people)
-	if err != nil {
-		return err
-	}
-	file.Write(people_out)
-	file.Close()
-
+	
 	return nil
 }
 
 func (args Arguments) RemoveOper(writer io.Writer) error {
-
-	if args[arg_id] == "" {
-		return errors.New("-id flag has to be specified")
-	}
-
-	content, err := ioutil.ReadFile(args[arg_fileName])
+	
+	people, err := args.ReadJsonFile(arg_id)
 	if err != nil {
 		return err
 	}
-
-	var people []Person
-	if err := json.Unmarshal(content, &people); err != nil {
-		return err
-	}
-
 	notFound := true
 	for i, p := range people {
 		if p.Id == args[arg_id] {
@@ -116,39 +125,25 @@ func (args Arguments) RemoveOper(writer io.Writer) error {
 			break
 		}
 	}
+	
 	if notFound {
 		writer.Write([]byte("Item with id " + args[arg_id] + " not found"))
 	}
 
-	file, err := os.OpenFile(args[arg_fileName], os.O_RDWR|os.O_TRUNC, filePerm)
-	if err != nil {
+	if err := args.WriteJsonFile(people); err !=nil {
 		return err
 	}
-
-	people_out, err := json.Marshal(people)
-	if err != nil {
-		return err
-	}
-	file.Write(people_out)
-	file.Close()
-
+	
 	return nil
 }
 
 func (args Arguments) FindOper(writer io.Writer) error {
-
-	if args[arg_id] == "" {
-		return errors.New("-id flag has to be specified")
-	}
-
-	content, err := ioutil.ReadFile(args[arg_fileName])
+	
+	people, err := args.ReadJsonFile(arg_id)
 	if err != nil {
 		return err
 	}
-	var people []Person
-	if err := json.Unmarshal(content, &people); err != nil {
-		return err
-	}
+	
 	for _, man := range people {
 		if man.Id == args[arg_id] {
 			man_out, err := json.Marshal(man)
@@ -173,7 +168,7 @@ func (args Arguments) ListOper(writer io.Writer) error {
 	return nil
 }
 
-func (args Arguments) validateArgs() error {
+func (args Arguments) validateArgsCreateFile() error {
 
 	err := errors.New("flag has to be specified")
 
@@ -189,28 +184,25 @@ func (args Arguments) validateArgs() error {
 	err = errors.New("Operation " + args[arg_operation] + " not allowed!")
 	for _, oper := range validOpers {
 		if args[arg_operation] == oper {
-			return nil
+			err = nil
 		}
 	}
-	return err
-}
-
-func (args Arguments) openFile() error {
-	file, err := os.OpenFile(args[arg_fileName], os.O_RDWR|os.O_CREATE, filePerm)
-	defer file.Close()
 	if err != nil {
 		return err
 	}
-	return nil
+	
+	file, err := os.OpenFile(args[arg_fileName], os.O_RDWR|os.O_CREATE, filePerm)
+	file.Close()
+	if err != nil {
+		return err
+	}
+	
+	return err
 }
 
 func Perform(args Arguments, writer io.Writer) (err error) {
 
-	if err = args.validateArgs(); err != nil {
-		return err
-	}
-
-	if err = args.openFile(); err != nil {
+	if err = args.validateArgsCreateFile(); err != nil {
 		return err
 	}
 
