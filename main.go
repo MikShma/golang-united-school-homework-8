@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -44,7 +43,7 @@ func parseArgs() (args Arguments) {
 }
 
 func (args Arguments) ReadJsonFile(checkArg string) (people []Person, err error) {
-	
+
 	if args[checkArg] == "" {
 		return nil, fmt.Errorf("-%s %s", checkArg, errSpecFlag)
 	}
@@ -53,11 +52,11 @@ func (args Arguments) ReadJsonFile(checkArg string) (people []Person, err error)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if len(content) == 0 {
 		return nil, nil
 	}
-	
+
 	if err := json.Unmarshal(content, &people); err != nil {
 		return nil, err
 	}
@@ -65,7 +64,7 @@ func (args Arguments) ReadJsonFile(checkArg string) (people []Person, err error)
 }
 
 func (args Arguments) WriteJsonFile(people []Person) error {
-	
+
 	file, err := os.OpenFile(args[arg_fileName], os.O_RDWR|os.O_CREATE|os.O_TRUNC, filePerm)
 	if err != nil {
 		return err
@@ -81,7 +80,7 @@ func (args Arguments) WriteJsonFile(people []Person) error {
 }
 
 func (args Arguments) AddOper(writer io.Writer) error {
-	
+
 	people, err := args.ReadJsonFile(arg_item)
 	if err != nil {
 		return err
@@ -103,16 +102,16 @@ func (args Arguments) AddOper(writer io.Writer) error {
 		Email: manToAdd.Email,
 		Age:   manToAdd.Age,
 	})
-	
-	if err := args.WriteJsonFile(people); err !=nil {
+
+	if err := args.WriteJsonFile(people); err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 
 func (args Arguments) RemoveOper(writer io.Writer) error {
-	
+
 	people, err := args.ReadJsonFile(arg_id)
 	if err != nil {
 		return err
@@ -125,25 +124,25 @@ func (args Arguments) RemoveOper(writer io.Writer) error {
 			break
 		}
 	}
-	
+
 	if notFound {
 		writer.Write([]byte("Item with id " + args[arg_id] + " not found"))
 	}
 
-	if err := args.WriteJsonFile(people); err !=nil {
+	if err := args.WriteJsonFile(people); err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 
 func (args Arguments) FindOper(writer io.Writer) error {
-	
+
 	people, err := args.ReadJsonFile(arg_id)
 	if err != nil {
 		return err
 	}
-	
+
 	for _, man := range people {
 		if man.Id == args[arg_id] {
 			man_out, err := json.Marshal(man)
@@ -170,18 +169,16 @@ func (args Arguments) ListOper(writer io.Writer) error {
 
 func (args Arguments) validateArgsCreateFile() error {
 
-	err := errors.New("flag has to be specified")
-
 	if args[arg_fileName] == "" {
-		return fmt.Errorf("-fileName %w", err)
+		return fmt.Errorf("-%s %s", arg_fileName, errSpecFlag)
 	}
 
 	if args[arg_operation] == "" {
-		return fmt.Errorf("-operation %w", err)
+		return fmt.Errorf("-%s %s", arg_operation, errSpecFlag)
 	}
 
 	validOpers := []string{"add", "remove", "findById", "list"}
-	err = errors.New("Operation " + args[arg_operation] + " not allowed!")
+	err := fmt.Errorf("Operation %s not allowed!", args[arg_operation])
 	for _, oper := range validOpers {
 		if args[arg_operation] == oper {
 			err = nil
@@ -190,13 +187,13 @@ func (args Arguments) validateArgsCreateFile() error {
 	if err != nil {
 		return err
 	}
-	
+
 	file, err := os.OpenFile(args[arg_fileName], os.O_RDWR|os.O_CREATE, filePerm)
 	file.Close()
 	if err != nil {
 		return err
 	}
-	
+
 	return err
 }
 
